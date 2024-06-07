@@ -1,25 +1,10 @@
 DiscountManager Project
+To run the project either use a multiple startup setup.
+Or run the exe files in each debug folder:
+Here ...\DiscountManager\DiscountManager\bin\Debug\net8.0
+And here ...\DiscountManager\DiscountManagerClient\bin\Debug\net8.0
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+I also created a few UnitTests in DiscountCodeManagerTests
 
 See Project requirements bellow:
 
