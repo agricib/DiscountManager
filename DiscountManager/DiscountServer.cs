@@ -5,53 +5,87 @@ using System.Text;
 
 public class DiscountServer
 {
-    private const int Port = 5000;
     private readonly DiscountCodeManager _discountManager;
-
-    public DiscountServer(string storageFile)
+    static async Task Main()
     {
+        int port = 12345;
+        string storageFile = "discounts.dat";
+        var server = new DiscountServer(port, storageFile);
+
+        try
+        {
+            await server.StartAsync();
+            Console.WriteLine("Server started on port {0}. Press any key to stop...", port);
+            Console.ReadKey();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error starting server: {ex.Message}");
+        }
+        finally
+        {
+            await server.StopAsync(); // graceful shutdown
+            Console.WriteLine("Server stopped.");
+        }
+    }
+
+    private readonly TcpListener _listener;
+    private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+
+    public DiscountServer(int port, string storageFile)
+    {
+        _listener = new TcpListener(IPAddress.Any, port);
         _discountManager = new DiscountCodeManager(storageFile);
     }
 
-    public static void Main(string[] args)
+    public async Task StartAsync()
     {
-        var server = new DiscountServer("discounts.dat");
-        server.Start();
-    }
+        _listener.Start();
 
-    public void Start()
-    {
-        var listener = new TcpListener(IPAddress.Any, Port);
-        listener.Start();
-        Console.WriteLine("Server started on port: {0}", Port);
-
-        while (true)
+        while (!_cancellationTokenSource.IsCancellationRequested)
         {
-            var client = listener.AcceptTcpClient();
-            Console.WriteLine("Client connected");
-            HandleClient(client);
-        }
-    }
-
-    private void HandleClient(TcpClient client)
-    {
-        using (var networkStream = client.GetStream())
-        using (var reader = new StreamReader(networkStream))
-        using (var writer = new StreamWriter(networkStream) { AutoFlush = true })
-        {
-            while (true)
+            try
             {
-                var request = reader.ReadLine();
-                if (request == null)
-                    break;
-
-                var response = ProcessRequest(request);
-                writer.WriteLine(response);
+                TcpClient client = await _listener.AcceptTcpClientAsync();
+                _ = ProcessRequestAsync(client);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error accepting connection: {ex.Message}");
             }
         }
+    }
 
-        client.Close();
-        Console.WriteLine("Client disconnected");
+    public async Task StopAsync()
+    {
+        _cancellationTokenSource.Cancel();
+        _listener.Stop();
+    }
+
+    private async Task ProcessRequestAsync(TcpClient client)
+    {
+        using (var networkStream = client.GetStream())
+        using (var reader = new StreamReader(networkStream, Encoding.ASCII))
+        using (var writer = new StreamWriter(networkStream, Encoding.ASCII) { AutoFlush = true })
+        {
+            try
+            {
+                string requestString = await reader.ReadLineAsync();
+                if (string.IsNullOrWhiteSpace(requestString))
+                    return;
+
+                string response = ProcessRequest(requestString);
+                await writer.WriteLineAsync(response);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing request: {ex.Message}");
+            }
+            finally
+            {
+                client.Close();
+            }
+        }
     }
 
     private string ProcessRequest(string request)

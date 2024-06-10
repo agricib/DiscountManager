@@ -2,7 +2,7 @@
 public class Client
 {
     private const string ServerAddress = "localhost";
-    private const int Port = 5000;
+    private const int Port = 12345;
 
     public static void Main(string[] args)
     {
